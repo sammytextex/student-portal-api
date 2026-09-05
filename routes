@@ -1,0 +1,136 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const Student = require("../models/Student");
+
+const router = express.Router();
+
+// CREATE - Create a student account
+router.post("/", async (req, res) => {
+  try {
+    const { name, regNo, email } = req.body;
+
+    if (!name || !regNo || !email) {
+      return res.status(400).json({
+        message: "Name, registration number and email are required",
+      });
+    }
+
+    const student = await Student.create({
+      name,
+      regNo,
+      email,
+    });
+
+    res.status(201).json({
+      message: "Student account created successfully",
+      student,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Registration number or email already exists",
+      });
+    }
+
+    res.status(500).json({
+      message: "Failed to create student",
+      error: error.message,
+    });
+  }
+});
+
+// READ - Get a student's details by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    const student = await Student.findById(id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json({ student });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to get student",
+      error: error.message,
+    });
+  }
+});
+
+// UPDATE - A student can update ONLY their name
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = Object.keys(req.body);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    if (fields.length !== 1 || !fields.includes("name")) {
+      return res.status(400).json({
+        message: "Only the name can be updated",
+      });
+    }
+
+    if (!req.body.name || typeof req.body.name !== "string") {
+      return res.status(400).json({
+        message: "A valid name is required",
+      });
+    }
+
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { name: req.body.name.trim() },
+      { new: true, runValidators: true }
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json({
+      message: "Student name updated successfully",
+      student,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update student",
+      error: error.message,
+    });
+  }
+});
+
+// DELETE - Permanently delete a student account
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+
+    const student = await Student.findByIdAndDelete(id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json({
+      message: "Student account deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to delete student",
+      error: error.message,
+    });
+  }
+});
+
+module.exports = router;
